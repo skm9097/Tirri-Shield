@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tirri-Shield Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>Tirri-Shield</h1>
+            <p class="subtitle">E-Rickshaw BMS Security Dashboard</p>
+            <div class="status-indicator" id="connection-status">
+                <span class="dot"></span>
+                <span class="label">Connecting...</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <nav class="tab-bar">
+            <button class="tab active" data-panel="scanner">Scanner</button>
+            <button class="tab" data-panel="monitor">Monitor</button>
+            <button class="tab" data-panel="info">Protection Guide</button>
+        </nav>
+
+        <!-- Scanner Panel -->
+        <section class="panel active" id="panel-scanner">
+            <div class="controls">
+                <div class="control-group">
+                    <label for="scan-duration">Scan Duration (seconds):</label>
+                    <input type="number" id="scan-duration" value="10" min="3" max="60">
+                </div>
+                <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="deep-scan"> Deep inspection (connects to devices)
+                    </label>
+                </div>
+                <button class="btn btn-primary" id="btn-scan">Scan for BMS Devices</button>
+            </div>
+
+            <div id="scan-status" class="status-box hidden"></div>
+
+            <div id="scan-results" class="results-container">
+                <p class="placeholder">Click "Scan for BMS Devices" to search for nearby vulnerable BMS devices.</p>
+            </div>
+        </section>
+
+        <!-- Monitor Panel -->
+        <section class="panel" id="panel-monitor">
+            <div class="controls">
+                <div class="control-group">
+                    <label for="monitor-target">Target BMS Address (optional):</label>
+                    <input type="text" id="monitor-target" placeholder="AA:BB:CC:DD:EE:FF">
+                </div>
+                <div class="control-group">
+                    <label for="monitor-interval">Poll Interval (seconds):</label>
+                    <input type="number" id="monitor-interval" value="5" min="2" max="30">
+                </div>
+                <button class="btn btn-primary" id="btn-monitor-start">Start Monitoring</button>
+                <button class="btn btn-danger" id="btn-monitor-stop" disabled>Stop</button>
+            </div>
+
+            <div id="alert-feed" class="alert-feed">
+                <p class="placeholder">Start monitoring to watch for unauthorized BLE connections.</p>
+            </div>
+        </section>
+
+        <!-- Info Panel -->
+        <section class="panel" id="panel-info">
+            <div class="info-content">
+                <h2>What is the BAT-BMS Attack?</h2>
+                <p>
+                    A Chinese smartphone app called <strong>BAT-BMS</strong> is being used to
+                    remotely disable e-rickshaws (tirris/totos) by connecting to their Battery
+                    Management System (BMS) via Bluetooth Low Energy (BLE) and toggling the
+                    discharge switch, which cuts power to the motor.
+                </p>
+
+                <h2>Why Are E-Rickshaws Vulnerable?</h2>
+                <div class="vuln-cards">
+                    <div class="vuln-card critical">
+                        <h3>No Authentication</h3>
+                        <p>Most budget BMS units accept Bluetooth connections without requiring any PIN, password, or pairing verification.</p>
+                    </div>
+                    <div class="vuln-card high">
+                        <h3>No Encryption</h3>
+                        <p>BLE communication is unencrypted. Commands including the discharge toggle are sent in plaintext.</p>
+                    </div>
+                    <div class="vuln-card medium">
+                        <h3>Open Advertising</h3>
+                        <p>The BMS broadcasts its presence continuously, making it easy for anyone to find with a scanning app.</p>
+                    </div>
+                    <div class="vuln-card medium">
+                        <h3>Identifiable Names</h3>
+                        <p>Devices broadcast names like "BMS" or "Xiaoxiang" that make them trivial to identify as targets.</p>
+                    </div>
+                </div>
+
+                <h2>How to Protect Your E-Rickshaw</h2>
+                <div class="protection-steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h3>Disconnect Bluetooth (Immediate)</h3>
+                            <p>
+                                Physically disconnect the Bluetooth module from your BMS.
+                                This is usually a small board or antenna inside the battery pack.
+                                Ask your mechanic or battery supplier for help.
+                                This completely eliminates the attack surface.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h3>Shield the BMS (Short-term)</h3>
+                            <p>
+                                If you need Bluetooth for monitoring, wrap the BMS in
+                                metal shielding or use a metal enclosure to reduce the
+                                Bluetooth signal range. Even partial shielding reduces
+                                the distance from which an attacker can connect.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h3>Upgrade Your BMS (Long-term)</h3>
+                            <p>
+                                Replace your BMS with one that supports PIN-based
+                                Bluetooth pairing and encrypted communication.
+                                Ask for "secure BLE" or "PIN-protected BMS" from your supplier.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <h3>Demand Better Standards (Advocacy)</h3>
+                            <p>
+                                Ask your battery and BMS supplier to provide firmware
+                                updates that add authentication. Report the issue to
+                                local transport authorities. Support industry standards
+                                for BMS security.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Tirri-Shield &mdash; Defensive security toolkit for e-rickshaw BMS protection</p>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
