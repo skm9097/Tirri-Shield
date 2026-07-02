@@ -37,6 +37,30 @@ SEVERITY_LABELS = {
 }
 
 
+def _serialize_reports(reports: list[SecurityReport]) -> list[dict]:
+    result = []
+    for report in reports:
+        result.append({
+            "device": {
+                "address": report.device.address,
+                "name": report.device.name,
+                "type": report.device.device_type.value,
+                "rssi": report.device.rssi,
+            },
+            "overall_level": report.overall_level.value,
+            "findings": [
+                {
+                    "title": f.title,
+                    "severity": f.severity.value,
+                    "description": f.description,
+                    "recommendation": f.recommendation,
+                }
+                for f in report.findings
+            ],
+        })
+    return result
+
+
 def _setup_logging(verbose: bool) -> None:
     level = logging.DEBUG if verbose else logging.WARNING
     logging.basicConfig(
@@ -110,7 +134,10 @@ def _display_report(report: SecurityReport) -> None:
 def _display_alert(alert: AlertEvent) -> None:
     style = SEVERITY_STYLES.get(alert.severity, "white")
     label = SEVERITY_LABELS.get(alert.severity, "[?]")
-    console.print(f"[{style}]{label}[/{style}] {alert.message}")
+    label_text = Text(label, style=style)
+    msg_text = Text(" " + alert.message)
+    combined = label_text.append_text(msg_text)
+    console.print(combined)
 
 
 @click.group()
@@ -194,51 +221,11 @@ def scan(duration: float, deep: bool, output: str | None, fmt: str) -> None:
                 )
             )
     elif fmt == "json":
-        result = []
-        for report in reports:
-            result.append({
-                "device": {
-                    "address": report.device.address,
-                    "name": report.device.name,
-                    "type": report.device.device_type.value,
-                    "rssi": report.device.rssi,
-                },
-                "overall_level": report.overall_level.value,
-                "findings": [
-                    {
-                        "title": f.title,
-                        "severity": f.severity.value,
-                        "description": f.description,
-                        "recommendation": f.recommendation,
-                    }
-                    for f in report.findings
-                ],
-            })
-        click.echo(json.dumps(result, indent=2))
+        click.echo(json.dumps(_serialize_reports(reports), indent=2))
 
     if output:
-        result_data = []
-        for report in reports:
-            result_data.append({
-                "device": {
-                    "address": report.device.address,
-                    "name": report.device.name,
-                    "type": report.device.device_type.value,
-                    "rssi": report.device.rssi,
-                },
-                "overall_level": report.overall_level.value,
-                "findings": [
-                    {
-                        "title": f.title,
-                        "severity": f.severity.value,
-                        "description": f.description,
-                        "recommendation": f.recommendation,
-                    }
-                    for f in report.findings
-                ],
-            })
         with open(output, "w") as f:
-            json.dump(result_data, f, indent=2)
+            json.dump(_serialize_reports(reports), f, indent=2)
         console.print(f"\n[green]Report saved to {output}[/green]")
 
 

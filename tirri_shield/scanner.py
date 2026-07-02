@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 from tirri_shield.analyzer import SecurityAnalyzer
 from tirri_shield.ble.discovery import BMSDiscovery
@@ -47,7 +48,7 @@ class TirriScanner:
 
     async def scan_and_watch(
         self,
-        on_device: callable | None = None,
+        on_device: Callable[[BMSDevice], None] | None = None,
         interval: float = 5.0,
     ) -> None:
         logger.info("Starting continuous BMS scan...")

@@ -38,8 +38,12 @@ document.addEventListener("DOMContentLoaded", function () {
     };
 
     ws.onmessage = function (event) {
-      var data = JSON.parse(event.data);
-      handleWSMessage(data);
+      try {
+        var data = JSON.parse(event.data);
+        handleWSMessage(data);
+      } catch (e) {
+        console.warn("Invalid WebSocket message:", e);
+      }
     };
   }
 

@@ -16,7 +16,20 @@ from tirri_shield.scanner import TirriScanner
 
 logger = logging.getLogger(__name__)
 
-STATIC_DIR = Path(__file__).parent.parent.parent / "web"
+
+def _find_static_dir() -> Path:
+    pkg_dir = Path(__file__).parent.parent
+    candidates = [
+        pkg_dir.parent / "web",
+        pkg_dir / "web_assets",
+    ]
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+    return candidates[0]
+
+
+STATIC_DIR = _find_static_dir()
 
 
 class DashboardServer:
@@ -41,12 +54,18 @@ class DashboardServer:
         self._app.router.add_post("/api/monitor/start", self._api_monitor_start)
         self._app.router.add_post("/api/monitor/stop", self._api_monitor_stop)
         self._app.router.add_get("/api/status", self._api_status)
-        self._app.router.add_static(
-            "/static/", path=str(STATIC_DIR / "static"), name="static"
-        )
+
+        static_path = STATIC_DIR / "static"
+        if static_path.is_dir():
+            self._app.router.add_static("/static/", path=str(static_path), name="static")
 
     async def _serve_index(self, request: web.Request) -> web.Response:
         index_path = STATIC_DIR / "templates" / "index.html"
+        if not index_path.exists():
+            return web.Response(
+                text="Dashboard files not found. Run from the project directory.",
+                status=404,
+            )
         return web.FileResponse(index_path)
 
     async def _handle_ws(self, request: web.Request) -> web.WebSocketResponse:
@@ -58,7 +77,10 @@ class DashboardServer:
         try:
             async for msg in ws:
                 if msg.type == WSMsgType.TEXT:
-                    data = json.loads(msg.data)
+                    try:
+                        data = json.loads(msg.data)
+                    except json.JSONDecodeError:
+                        continue
                     await self._handle_ws_message(ws, data)
                 elif msg.type == WSMsgType.ERROR:
                     logger.error("WebSocket error: %s", ws.exception())
@@ -80,7 +102,7 @@ class DashboardServer:
             return
         data = json.dumps(message)
         stale = set()
-        for ws in self._ws_clients:
+        for ws in list(self._ws_clients):
             try:
                 await ws.send_str(data)
             except Exception:
@@ -103,45 +125,32 @@ class DashboardServer:
                 "name": alert.device.name,
                 "rssi": alert.device.rssi,
             }
-        asyncio.ensure_future(self._broadcast_ws(message))
+        loop = asyncio.get_event_loop()
+        loop.create_task(self._broadcast_ws(message))
+
+    async def _parse_json_body(self, request: web.Request) -> dict:
+        if not request.can_read_body:
+            return {}
+        try:
+            return await request.json()
+        except (json.JSONDecodeError, Exception):
+            return {}
 
     async def _api_scan(self, request: web.Request) -> web.Response:
-        body = await request.json() if request.can_read_body else {}
+        body = await self._parse_json_body(request)
         duration = body.get("duration", 10.0)
         deep = body.get("deep", False)
 
-        scanner = TirriScanner(scan_duration=duration, deep_inspect=deep)
+        self._scanner = TirriScanner(scan_duration=duration, deep_inspect=deep)
 
         await self._broadcast_ws({"type": "scan_started"})
 
         try:
-            reports = await scanner.scan()
+            reports = await self._scanner.scan()
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
-        results = []
-        for report in reports:
-            results.append({
-                "device": {
-                    "address": report.device.address,
-                    "name": report.device.name,
-                    "type": report.device.device_type.value,
-                    "rssi": report.device.rssi,
-                    "signal_strength": report.device.signal_strength,
-                    "estimated_distance_m": round(report.device.estimated_distance_m, 1),
-                },
-                "overall_level": report.overall_level.value,
-                "findings": [
-                    {
-                        "title": f.title,
-                        "severity": f.severity.value,
-                        "description": f.description,
-                        "recommendation": f.recommendation,
-                    }
-                    for f in report.findings
-                ],
-            })
-
+        results = _serialize_reports(reports)
         self._latest_scan = results
         await self._broadcast_ws({"type": "scan_complete", "data": results})
 
@@ -156,7 +165,7 @@ class DashboardServer:
         if self._monitor.is_running:
             return web.json_response({"status": "already_running"})
 
-        body = await request.json() if request.can_read_body else {}
+        body = await self._parse_json_body(request)
         target = body.get("target")
 
         self._monitor = BLEMonitor(
@@ -200,3 +209,30 @@ class DashboardServer:
             pass
         finally:
             await runner.cleanup()
+
+
+def _serialize_reports(reports: list) -> list[dict]:
+    results = []
+    for report in reports:
+        dist = report.device.estimated_distance_m
+        results.append({
+            "device": {
+                "address": report.device.address,
+                "name": report.device.name,
+                "type": report.device.device_type.value,
+                "rssi": report.device.rssi,
+                "signal_strength": report.device.signal_strength,
+                "estimated_distance_m": round(dist, 1) if dist >= 0 else -1,
+            },
+            "overall_level": report.overall_level.value,
+            "findings": [
+                {
+                    "title": f.title,
+                    "severity": f.severity.value,
+                    "description": f.description,
+                    "recommendation": f.recommendation,
+                }
+                for f in report.findings
+            ],
+        })
+    return results

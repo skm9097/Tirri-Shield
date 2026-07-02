@@ -14,18 +14,20 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections import deque
 from collections.abc import Callable
 
 from bleak import BleakScanner
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 
-from tirri_shield.ble.signatures import is_likely_bms
+from tirri_shield.ble.signatures import identify_device, is_likely_bms
 from tirri_shield.models import AlertEvent, BMSDevice, ConnectionEvent, SecurityLevel
 
 logger = logging.getLogger(__name__)
 
 MISSED_CYCLES_BEFORE_ALERT = 3
+MAX_STORED_EVENTS = 1000
 
 
 class BLEMonitor:
@@ -44,13 +46,12 @@ class BLEMonitor:
         self.rssi_change_threshold = rssi_change_threshold
 
         self._known_devices: dict[str, BMSDevice] = {}
-        self._device_rssi_history: dict[str, list[int]] = {}
         self._missed_cycles: dict[str, int] = {}
         self._alert_callbacks: list[Callable[[AlertEvent], None]] = []
         self._event_callbacks: list[Callable[[ConnectionEvent], None]] = []
         self._running = False
-        self._alerts: list[AlertEvent] = []
-        self._events: list[ConnectionEvent] = []
+        self._alerts: deque[AlertEvent] = deque(maxlen=MAX_STORED_EVENTS)
+        self._events: deque[ConnectionEvent] = deque(maxlen=MAX_STORED_EVENTS)
 
     def on_alert(self, callback: Callable[[AlertEvent], None]) -> None:
         self._alert_callbacks.append(callback)
@@ -96,12 +97,14 @@ class BLEMonitor:
 
         def detection_callback(device: BLEDevice, adv_data: AdvertisementData) -> None:
             name = adv_data.local_name or device.name
-            service_uuids = adv_data.service_uuids or []
+            service_uuids = list(adv_data.service_uuids or [])
+            device_type = identify_device(name, service_uuids)
             bms_device = BMSDevice(
                 address=device.address,
                 name=name,
                 rssi=adv_data.rssi or -100,
-                service_uuids=list(service_uuids),
+                device_type=device_type,
+                service_uuids=service_uuids,
                 manufacturer_data=dict(adv_data.manufacturer_data or {}),
             )
             current_scan[device.address] = bms_device

@@ -54,7 +54,7 @@ class BMSDevice:
     @property
     def estimated_distance_m(self) -> float:
         tx_power = -59
-        if self.rssi == 0:
+        if self.rssi >= 0:
             return -1.0
         ratio = self.rssi / tx_power
         if ratio < 1.0:
