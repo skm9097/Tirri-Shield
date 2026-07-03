@@ -47,6 +47,7 @@ jobs:
             unzip \
             autoconf \
             libtool \
+            libltdl-dev \
             pkg-config \
             zlib1g-dev \
             libncurses-dev \
@@ -74,7 +75,8 @@ jobs:
       - name: Build APK
         working-directory: android
         run: |
-          yes | buildozer android debug 2>&1 | tee /tmp/buildozer.log | tail -100
+          set -o pipefail
+          yes | buildozer android debug 2>&1 | tee /tmp/buildozer.log
 
       - name: Show build log on failure
         if: failure()
