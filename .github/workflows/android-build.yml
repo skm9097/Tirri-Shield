@@ -37,6 +37,9 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
+          # Package set compatible with Ubuntu 22.04 and 24.04 runners.
+          # (libtinfo5 / libncurses5-dev were dropped in 24.04; libncurses-dev
+          # provides the headers buildozer needs.)
           sudo apt-get install -y \
             build-essential \
             git \
@@ -46,9 +49,7 @@ jobs:
             libtool \
             pkg-config \
             zlib1g-dev \
-            libncurses5-dev \
-            libncursesw5-dev \
-            libtinfo5 \
+            libncurses-dev \
             cmake \
             libffi-dev \
             libssl-dev \
