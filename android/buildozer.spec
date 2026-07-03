@@ -19,7 +19,7 @@ android.archs = arm64-v8a,armeabi-v7a
 
 orientation = portrait
 fullscreen = 0
-android.features = android.hardware.bluetooth_le
+android.extra_manifest_xml = <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
 android.accept_sdk_license = True
 android.enable_androidx = True
 
